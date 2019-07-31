@@ -1,0 +1,8 @@
+numpy
+scipy
+matplotlib
+pandas
+Pillow
+pytest
+tensorflow-gpu==1.13.1
+flask==1.0.2
