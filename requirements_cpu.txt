@@ -4,5 +4,5 @@ matplotlib
 pandas
 Pillow
 pytest
-tensorflow==1.13.1
+tensorflow==1.12.0
 flask==1.0.2
