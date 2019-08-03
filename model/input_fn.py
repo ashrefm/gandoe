@@ -35,18 +35,44 @@ def _parse_example(filename, img_size, channels):
     return features_normalized
 
 
+def _check_dir(dataset_dir, params):
+    """Extracts valid images from dataset folder.
+
+    Args:
+        dataset_dir: directory containing the train, validation or test images
+        params: contains hyperparameters of the model (ex: `params.learning_rate`)
+    
+    Returns:
+        image_list: (list) containing all valid images
+    """
+
+    if not os.path.exists(dataset_dir):
+        raise ValueError('Dataset path is not correct {}'.format(dataset_dir))
+
+    # get all images from each class folder
+    image_list = glob.glob(dataset_dir+"/*."+params.img_type)
+    if len(image_list) == 0:
+        raise ValueError('No valid images were found in %s' %dataset_dir)
+    
+    return image_list
+
+
 def create_dataset(dataset_dir, params):
     """Load and parse dataset.
 
     Args:
-        dataset_dir: directory containing the train, validation or test folder
+        dataset_dir: directory containing the train, validation or test images
         params: contains hyperparameters of the model (ex: `params.learning_rate`)
+
+    Returns:
+        dataset: (tf.data.Dataset) containing filenames
     """
 
     filenames = []
 
     # get all images from each class folder
-    image_list = glob.glob(dataset_dir+"/*."+params.img_type)
+    image_list = _check_dir(dataset_dir, params)
+
     # add class images to filenames
     filenames = filenames + image_list
 
@@ -69,6 +95,9 @@ def read_dataset(dataset_dir, params, mode):
     Args:
         data_dir: (string) path to the data directory
         params: (Params) contains hyperparameters of the model (ex: `params.num_epochs`)
+    
+    Returns:
+        input_fn: (function) callable input function that generates a dataset
     """
 
     def _input_fn():
