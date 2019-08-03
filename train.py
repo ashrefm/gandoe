@@ -60,7 +60,6 @@ if __name__ == '__main__':
 
     estimator = tf.estimator.Estimator(model_fn, params=params, config=config)
 
-
     # Specification for training the model
     train_spec = tf.estimator.TrainSpec(
         input_fn=read_dataset(
@@ -71,11 +70,10 @@ if __name__ == '__main__':
         max_steps=train_steps+1
     )
 
-
     # Specification for evaluating the model
     eval_spec = tf.estimator.EvalSpec(
         input_fn=read_dataset(
-            os.path.join(args.data_dir, 'val'),
+            os.path.join(args.data_dir, 'dev', 'KO'),
             params,
             mode=tf.estimator.ModeKeys.EVAL
         ),
@@ -83,7 +81,6 @@ if __name__ == '__main__':
         start_delay_secs=1, # Start evaluation after 1 second if checkpoint available
         throttle_secs=params.eval_interval # evaluate if new checkpoints available and last evaluation at least eval_interval seconds ago
     )
-
 
     # Train and evaluate the model
     tf.logging.info("Starting training for {} step(s).".format(train_steps))

@@ -18,8 +18,31 @@
 import tensorflow as tf
 
 
+def l1_loss(tensor1, tensor2):
+    """Computes the average l1 distance between two tensors."""
+
+    l1_dist = tf.reduce_mean(tf.abs(tensor1 - tensor2))
+
+    return l1_dist
+    
+
+def l2_loss(tensor1, tensor2):
+    """Computes the average l2 distance between two tensors."""
+
+    l2_dist = tf.reduce_mean(tf.square(tensor1 - tensor2))
+
+    return l2_dist
+
+
+def bce_loss(y_true, y_pred):
+    """Computes the average binary cross-entropy."""
+
+    return tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=y_true,
+                                                                  logits=y_pred))
+
+
 def context_loss(inputs, outputs):
-    """Computes the average reconstruction loss using the l1 distance
+    """Computes the average reconstruction loss using the l1 distance.
 
     Args:
         inputs: (tf.Tensor) input batch of images (img_size, img_size, img_channels)
@@ -48,10 +71,3 @@ def adversarial_loss(features_real, features_fake):
     l2_dist = tf.reduce_mean(tf.square(features_real - features_fake))
 
     return l2_dist
-
-
-def bce_loss(y_true, y_pred):
-    """Computes the binary cross-entropy."""
-
-    return tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=y_true,
-                                                                  logits=y_pred))

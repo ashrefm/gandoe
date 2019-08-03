@@ -81,7 +81,7 @@ def encoder(images, is_training, params):
         padding='valid',
         use_bias=False,
         name='conv2d_'+str(conv_idx+1))
-    # 1 x 1 x z_size (latent vecotr)
+    # 1 x 1 x z_size (latent vector)
 
     return z
 

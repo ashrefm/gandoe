@@ -16,7 +16,7 @@
 
 
 import tensorflow as tf
-from model.loss_fn import context_loss, adversarial_loss, bce_loss
+from model.loss_fn import *
 from model.models import encoder, decoder, discriminator
 
 
@@ -42,7 +42,9 @@ def model_fn(features, mode, params):
     img_size = params.img_size
 
     images = tf.reshape(features, [-1, img_size, img_size, img_channels])
-    assert images.shape[1:] == [img_size, img_size, img_channels], "{}".format(images.shape)
+    assert images.shape[1:] == [img_size, img_size, img_channels], "{}"\
+        .format(images.shape)
+    # images = 2 * images - 1 (no need to adapt to generator's tanh)
 
 
     # MODEL
@@ -50,37 +52,82 @@ def model_fn(features, mode, params):
 
     with tf.variable_scope('model'):
     
-        # Compute the latent space using the encoder 
+        # Compute the encoded features of the original images 
         with tf.variable_scope('encoder1'):
             z = encoder(images, is_training, params)
-            z_mean_norm = tf.reduce_mean(tf.norm(z, axis=1))
+            z_mean_norm = tf.reduce_mean(
+                tf.norm(tf.reshape(z, [-1, params.z_size]), axis=1))
 
         # Generate fake images using the decoder
         with tf.variable_scope('decoder'):
             fakes = decoder(z, is_training, params, img_channels)
 
+        # Compute the encoded features of the generated images 
+        with tf.variable_scope('encoder2'):
+            z_star = encoder(fakes, is_training, params)
+            z_star_mean_norm = tf.reduce_mean(
+                tf.norm(tf.reshape(z_star, [-1, params.z_size]), axis=1))
+
         # Feature extraction and discrimination of fake and real images
         with tf.variable_scope('discriminator'):
-            features_real, logits_real = discriminator(images, is_training, params)
+            features_real, logits_real = discriminator(
+                images,
+                is_training,
+                params)
         
         with tf.variable_scope('discriminator', reuse=True):
-            features_fake, logits_fake = discriminator(fakes, is_training, params, reuse=True)
+            features_fake, logits_fake = discriminator(
+                fakes,
+                is_training,
+                params,
+                reuse=True)
  
 
     # LOSSES
     # -------------------------------------------------------------------------
     
+    # contextual loss
     con_loss = context_loss(images, fakes)
-    adv_loss = adversarial_loss(features_real, features_fake) + bce_loss(logits_fake, tf.ones_like(logits_fake))
-    gen_loss = 50 * con_loss + adv_loss
+    # feature matching loss
+    fma_loss = l2_loss(features_real, features_fake)
+    # adversarial loss
+    adv_loss = bce_loss(logits_fake, tf.ones_like(logits_fake))
+    # encoder loss
+    enc_loss = l2_loss(z, z_star)
 
+    # generator loss
+    gen_loss = 50 * con_loss + fma_loss + adv_loss + enc_loss
+
+    # discriminator loss
     real_loss = bce_loss(logits_real, tf.ones_like(logits_real))
     fake_loss = bce_loss(logits_fake, tf.zeros_like(logits_fake))
     dis_loss = real_loss + fake_loss
 
     if mode == tf.estimator.ModeKeys.PREDICT:
-        predictions = {'z': z, 'generated':fakes, 'context_loss': con_loss}
-        return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
+
+        # We will be returning individual losses for each observation
+        predictions = {
+            'z': z,
+            'generated':fakes,
+            'context_loss': tf.reduce_mean(
+                tf.reshape(
+                    tf.abs(images - fakes),
+                    [-1, img_size * img_size * img_channels]
+                ),
+                axis=1),
+            'encoder_loss': tf.reduce_mean(
+                tf.reshape(tf.square(z - z_star), [-1, z_size]),
+                axis=1)
+        }
+
+        export_outputs = {
+            'output': tf.estimator.export.PredictedOutput(predictions)
+        }
+
+        return tf.estimator.EstimatorSpec(
+            mode=mode,
+            predictions=predictions,
+            export_outputs=export_outputs)
 
 
     # METRICS AND SUMMARIES
@@ -88,8 +135,11 @@ def model_fn(features, mode, params):
     with tf.variable_scope("metrics"):
         eval_metric_ops = {
             'z_mean_norm': tf.metrics.mean(z_mean_norm),
+            'z_star_mean_norm': tf.metrics.mean(z_star_mean_norm),
             'context_loss': tf.metrics.mean(con_loss),
+            'feature_matching_loss': tf.metrics.mean(fma_loss),
             'adversarial_loss': tf.metrics.mean(adv_loss),
+            'encoder_loss': tf.metrics.mean(enc_loss),
             'generator_loss': tf.metrics.mean(gen_loss),
             'real_loss': tf.metrics.mean(real_loss),
             'fake_loss': tf.metrics.mean(fake_loss),
@@ -97,12 +147,18 @@ def model_fn(features, mode, params):
         }
 
     if mode == tf.estimator.ModeKeys.EVAL:
-        return tf.estimator.EstimatorSpec(mode, loss=gen_loss+dis_loss, eval_metric_ops=eval_metric_ops)
+        return tf.estimator.EstimatorSpec(
+            mode,
+            loss=gen_loss+dis_loss,
+            eval_metric_ops=eval_metric_ops)
 
     # Scalar summaries for training
     tf.summary.scalar("z_mean_norm", z_mean_norm)
+    tf.summary.scalar("z_star_mean_norm", z_star_mean_norm)
     tf.summary.scalar("context_loss", con_loss)
+    tf.summary.scalar("feature_matching_loss", fma_loss)
     tf.summary.scalar("adversarial_loss", adv_loss)
+    tf.summary.scalar("encoder_loss", enc_loss)
     tf.summary.scalar("generator_loss", gen_loss)
     tf.summary.scalar("real_loss", real_loss)
     tf.summary.scalar("fake_loss", fake_loss)
@@ -127,7 +183,9 @@ def model_fn(features, mode, params):
         gen_optimizer = optimizers[params.optimizer](params.learning_rate)
         dis_optimizer = optimizers[params.optimizer](params.learning_rate)
     else:
-        raise ValueError("Optimizer not recognized: {}\nShould be in the list {}".format(params.optimizer, list(optimizers.keys())))
+        raise ValueError(
+            "Optimizer not recognized: {}\nShould be in the list {}".\
+            format(params.optimizer, list(optimizers.keys())))
 
     tf.logging.info("Current optimizer: {}".format(params.optimizer))
 
@@ -135,9 +193,13 @@ def model_fn(features, mode, params):
     global_step = tf.train.get_global_step()
 
     # Connect the different optimizers
-    train_op = tf.group(gen_optimizer.minimize(gen_loss, global_step=global_step),
-                        dis_optimizer.minimize(dis_loss, global_step=global_step))
+    train_op = tf.group(
+        gen_optimizer.minimize(gen_loss, global_step=global_step),
+        dis_optimizer.minimize(dis_loss, global_step=global_step))
 
     #train_op = gen_optimizer.minimize(gen_loss+, global_step=global_step)
     
-    return tf.estimator.EstimatorSpec(mode, loss=gen_loss+dis_loss, train_op=train_op)
+    return tf.estimator.EstimatorSpec(
+        mode,
+        loss=gen_loss+dis_loss,
+        train_op=train_op)
