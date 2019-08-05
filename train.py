@@ -16,7 +16,9 @@
 
 
 import argparse
+import glob
 import os
+import shutil
 import time
 import timeit
 
@@ -24,7 +26,7 @@ import tensorflow as tf
 
 from model.input_fn import read_dataset
 from model.model_fn import model_fn
-from model.utils import Params
+from model.utils import Params, clear_model_dir
 
 
 parser = argparse.ArgumentParser()
@@ -45,6 +47,11 @@ if __name__ == '__main__':
     assert os.path.isfile(json_path), "No json configuration file found at {}".format(json_path)
     params = Params(json_path)
 
+    # Resume or start new training
+    if not params.resume_training:
+        clear_model_dir(args.model_dir)
+
+    # Define training steps
     train_steps = params.train_examples // params.batch_size
     checkpoint_steps = train_steps // params.checkpoints
     summary_steps = checkpoint_steps // 5
@@ -73,7 +80,7 @@ if __name__ == '__main__':
     # Specification for evaluating the model
     eval_spec = tf.estimator.EvalSpec(
         input_fn=read_dataset(
-            os.path.join(args.data_dir, 'dev', 'KO'),
+            os.path.join(args.data_dir, 'val'),
             params,
             mode=tf.estimator.ModeKeys.EVAL
         ),

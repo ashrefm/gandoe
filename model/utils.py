@@ -14,8 +14,12 @@
 
 """General utility functions"""
 
+import glob
 import json
 import logging
+import os
+import shutil
+import tensorflow as tf
 
 
 class Params():
@@ -76,3 +80,22 @@ def set_logger(log_path):
         stream_handler = logging.StreamHandler()
         stream_handler.setFormatter(logging.Formatter('%(message)s'))
         logger.addHandler(stream_handler)
+
+
+def clear_model_dir(model_dir):
+    """Removes all files except the params.json file from model directory."""
+
+    tf.logging.info("Clearing experiment directory.")
+    experiment_files = glob.glob(model_dir+"/*", recursive=True)
+    remove_files = [f for f in experiment_files if not "params.json" in f and os.path.isfile(f)]
+    remove_dirs = [d for d in experiment_files if not "params.json" in d and os.path.isdir(d)]
+    for f in remove_files:
+        try:
+            os.remove(f)
+        except:
+            print("Error while deleting file: {}".format(f))
+    for d in remove_dirs:
+        try:
+            shutil.rmtree(d)
+        except:
+            print("Error while deleting directory: {}".format(d))
