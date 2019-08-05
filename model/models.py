@@ -71,7 +71,7 @@ def encoder(images, is_training, params):
 
         x = tf.nn.relu(x, name='relu_'+str(conv_idx))
         size = size // 2
-        channel = channels * 2
+        channels = channels * 2
         conv_idx +=1
     # 4 x 4 x channels
     
@@ -183,7 +183,7 @@ def discriminator(inputs, is_training, params, reuse=None):
 
         x = tf.nn.leaky_relu(x, alpha=0.2, name='leaky_relu_'+str(conv_idx))
         size = size // 2
-        channel = channels * 2
+        channels = channels * 2
         conv_idx +=1
 
     features = x
