@@ -145,7 +145,7 @@ def decoder(z, is_training, params, img_channels):
     return decoded
 
 
-def discriminator(inputs, is_training, params, reuse=None):
+def discriminator(inputs, is_training, params):
     """Sub-network that classifies input images as real or fake.
 
     Args:
@@ -198,6 +198,6 @@ def discriminator(inputs, is_training, params, reuse=None):
         name='conv2d_'+(str(conv_idx+1)))
 
     x = tf.layers.flatten(x)
-    logits = tf.layers.dense(x, 1, activation='sigmoid')
+    logits = tf.layers.dense(x, 1)
 
     return features, logits
