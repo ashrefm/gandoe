@@ -34,7 +34,7 @@ def l2_loss(tensor1, tensor2):
     return l2_dist
 
 
-def bce_loss(y_true, y_pred):
+def bce_loss(y_pred, y_true):
     """Computes the average binary cross-entropy."""
 
     return tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=y_true,
