@@ -34,40 +34,34 @@ def l2_loss(tensor1, tensor2):
     return l2_dist
 
 
-def bce_loss(y_pred, y_true):
-    """Computes the average binary cross-entropy."""
+def bce_loss_with_logits(y_hat, y):
+    """Computes the average binary cross-entropy based on logits."""
 
-    return tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=y_true,
-                                                                  logits=y_pred))
+    return tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=y,
+                                                                  logits=y_hat))
 
 
-def context_loss(inputs, outputs):
+def bce_loss(y_hat, y):
+    """Computes the average binary cross-entropy based on probabilities."""
+    
+    bce_loss = - y * tf.log(tf.maximum(y_hat, 1e-16)) - (1-y) * tf.log(tf.maximum(1-y_hat, 1e-16))
+    bce_loss = tf.reduce_mean(bce_loss)
+
+    return bce_loss 
+
+
+def context_loss(inputs, outputs, margin=0):
     """Computes the average reconstruction loss using the l1 distance.
 
     Args:
         inputs: (tf.Tensor) input batch of images (img_size, img_size, img_channels)
         outputs: (tf.Ttensor) output batch of images (img_size, img_size , img_channels)
+        margin: (float) minimize distance to a certain percentage of margin
 
     Returns:
         l1_dist: (tf.float32) scalar tensor of context loss
     """
 
-    l1_dist = tf.reduce_mean(tf.abs(inputs - outputs))
+    l1_dist = tf.reduce_mean(tf.abs(inputs - outputs) + margin)
 
     return l1_dist
-
-
-def adversarial_loss(features_real, features_fake):
-    """Computes the real and fakes features matching inside discriminator.
-
-    Args:
-        features_real: (tf.Tensor) input batch of features (w, h, c)
-        features_fake: (tf.Ttensor) output batch of images (w, h, c)
-
-    Returns:
-        l2_loss: (tf.float32) scalar tensor of adversarial loss
-    """
-
-    l2_dist = tf.reduce_mean(tf.square(features_real - features_fake))
-
-    return l2_dist
